@@ -33,10 +33,12 @@
 
 <script>
   // Adresse IP de ton PC où tourne Flask — MODIFIE ICI selon ton réseau !
-  const SERVER_URL = 'http://192.168.14.15:5000/send';
+ // const SERVER_URL = 'http://192.168.14.15:5000/send';
+ const SERVER_URL = 'http://127.0.0.1:5000/send';
 
   // Initialisation de la carte
-  const map = L.map('map').setView([33.8925, 9.5616], 15); // Tunisie
+  //const map = L.map('map').setView([33.8925, 9.5616], 15); // Tunisie
+   const map = L.map('map').setView([33.8925, 9.5616], 15); // Tunisie
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
