@@ -1,16 +1,14 @@
 from flask import Flask, request
 import serial
-import threading
 
 # Configuration du port série
 try:
-    ser = serial.Serial('COM5', 9600, timeout=1)  # ⚠️ remplace COM5 par le port réel de ta STM32
+    ser = serial.Serial('COM3', 115200, timeout=1)  # Change COM3 si besoin
     print("✅ Port série ouvert :", ser.port)
 except Exception as e:
     print("❌ Erreur d'ouverture du port série :", e)
     ser = None
 
-# Création de l'application Flask
 app = Flask(__name__)
 
 @app.route('/send', methods=['POST'])
@@ -25,7 +23,6 @@ def recevoir_donnees():
         print("\n📥 Données reçues depuis la page web :")
         print(contenu)
 
-        # Envoie les lignes au STM32 via UART
         for ligne in contenu.strip().split('\n'):
             ser.write((ligne + '\n').encode())
             print(f"📤 Envoyé à la STM32 : {ligne}")
@@ -34,4 +31,5 @@ def recevoir_donnees():
     except Exception as e:
         return f"❌ Erreur : {str(e)}", 500
 
-# Lancement du serveur Flask sur le por
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
