@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Définir une zone sécurisée</title>
+  <style>
+    #map { height: 600px; width: 100%; margin-bottom: 20px; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    button { margin-right: 10px; padding: 8px 16px; font-size: 16px; }
+    h2 { margin-bottom: 10px; }
+    pre { background: #f0f0f0; padding: 10px; }
+  </style>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet Draw plugin -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+</head>
+
+<body>
+
+<h2>Tracez la zone sécurisée 🐪</h2>
+
+<div id="map"></div>
+
+<button onclick="exporterCoordonnees()">📤 Exporter les coordonnées</button>
+<button onclick="envoyerCoordonnees()">🚀 Envoyer à la STM32</button>
+
+<pre id="output"></pre>
+
+<script>
+  // Initialisation de la carte
+  const map = L.map('map').setView([33.8925, 9.5616], 15); // Tunisie
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  const drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  // Activer le tracé de polygone et cercle
+  const drawControl = new L.Control.Draw({
+    draw: {
+      polyline: false,
+      rectangle: false,
+      marker: false,
+      circlemarker: false,
+      polygon: {
+        allowIntersection: false,
+        showArea: true
+      },
+      circle: {
+        shapeOptions: {
+          color: 'blue'
+        }
+      }
+    },
+    edit: {
+      featureGroup: drawnItems
+    }
+  });
+  map.addControl(drawControl);
+
+  // Lorsqu’un élément est dessiné (cercle ou polygone)
+  map.on(L.Draw.Event.CREATED, function (event) {
+    const layer = event.layer;
+    drawnItems.clearLayers(); // garder un seul élément à la fois
+    drawnItems.addLayer(layer);
+  });
+
+  // 📤 Exporter les coordonnées dans <pre>
+  function exporterCoordonnees() {
+    const layers = drawnItems.getLayers();
+    if (layers.length === 0) {
+      alert("Veuillez tracer une zone d'abord.");
+      return;
+    }
+
+    const layer = layers[0];
+    let output;
+
+    if (layer instanceof L.Polygon) {
+      const latlngs = layer.getLatLngs()[0];
+      output = latlngs.map(p => ({
+        lat: Number(p.lat.toFixed(6)),
+        lon: Number(p.lng.toFixed(6))
+      }));
+    } else if (layer instanceof L.Circle) {
+      const center = layer.getLatLng();
+      const radius = layer.getRadius(); // en mètres
+      output = {
+        type: "circle",
+        center: {
+          lat: Number(center.lat.toFixed(6)),
+          lon: Number(center.lng.toFixed(6))
+        },
+        radius: Number(radius.toFixed(2))
+      };
+    }
+
+    document.getElementById('output').textContent = JSON.stringify(output, null, 2);
+  }
+
+  // 🚀 Envoyer les coordonnées vers le serveur Python local
+  function envoyerCoordonnees() {
+    const layers = drawnItems.getLayers();
+    if (layers.length === 0) {
+      alert("Veuillez tracer une zone d'abord.");
+      return;
+    }
+
+    const layer = layers[0];
+    let data;
+
+    if (layer instanceof L.Polygon) {
+      const latlngs = layer.getLatLngs()[0];
+      data = "ZONE_START\n";
+      data += latlngs.map(p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`).join('\n');
+      data += "\nZONE_END";
+    } else if (layer instanceof L.Circle) {
+      const center = layer.getLatLng();
+      const radius = layer.getRadius();
+      data = `CIRCLE\n${center.lat.toFixed(6)},${center.lng.toFixed(6)}\nRADIUS:${radius.toFixed(2)}\nCIRCLE_END`;
+    }
+
+    fetch('http://localhost:5000/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data })
+    })
+    .then(response => response.text())
+    .then(result => alert(result))
+    .catch(error => alert("Erreur lors de l'envoi : " + error));
+  }
+</script>
